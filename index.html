@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JCB Secure PRO</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+body{font-family:Arial;margin:0;background:#eef2f7}
+
+/* HEADER */
+.header{
+background:#3f51b5;
+color:#fff;
+padding:14px;
+text-align:center;
+font-size:18px;
+font-weight:bold;
+}
+
+/* CONTAINER */
+.container{padding:10px}
+
+/* CARD */
+.card{
+background:#fff;
+padding:12px;
+border-radius:10px;
+margin-bottom:10px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* INPUT */
+input,select{
+width:100%;
+padding:14px;
+margin-top:8px;
+border-radius:8px;
+border:1px solid #ddd;
+font-size:16px;
+}
+
+/* BUTTON */
+button{
+width:100%;
+padding:14px;
+margin-top:10px;
+border:none;
+border-radius:8px;
+background:#ff9800;
+color:#fff;
+font-size:16px;
+font-weight:bold;
+}
+
+/* TOTAL */
+.total{
+display:flex;
+gap:8px;
+margin-bottom:8px;
+}
+
+.box{
+flex:1;
+background:#fff;
+padding:10px;
+border-radius:10px;
+text-align:center;
+font-size:14px;
+font-weight:bold;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+.cash{color:#1565c0;}
+
+.udhar{
+background:#fff3f3;
+color:#c62828;
+border:1px solid #ffcdd2;
+}
+
+/* RECORD */
+.record{
+background:#fff;
+padding:12px;
+border-radius:10px;
+margin-top:8px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* DATE */
+.dt{
+font-size:12px;
+color:#666;
+margin-top:4px;
+}
+
+/* RUNNING */
+.run{
+margin-top:6px;
+font-size:14px;
+font-weight:600;
+}
+
+.udharRun{
+background:#ffe5e5;
+padding:6px;
+border-radius:6px;
+color:#b71c1c;
+}
+
+/* DELETE */
+.del{
+background:#f44336;
+margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">💰 JCB Hisab</div>
+
+<div class="container">
+
+<!-- ENTRY -->
+<div class="card">
+<input id="name" placeholder="Customer Name">
+<input id="amount" type="number" placeholder="Amount">
+
+<select id="type">
+<option value="cash">Cash</option>
+<option value="udhar">Udhari</option>
+</select>
+
+<button onclick="add()">Add Entry</button>
+<button onclick="changePassword()">🔑 Change Password</button>
+</div>
+
+<!-- TOTAL -->
+<div class="total">
+<div class="box cash">
+💵 Cash<br>₹ <span id="cashTotal">0</span>
+</div>
+
+<div class="box udhar">
+💳 Udhari<br>₹ <span id="udharTotal">0</span>
+</div>
+</div>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+
+/* 🔒 PASSWORD (SAVE IN LOCAL STORAGE) */
+let deletePassword = localStorage.getItem("delPass") || "1234";
+
+/* FIREBASE */
+const firebaseConfig = {
+apiKey:"AIzaSyDsESdCBeJzDPFmegY0NiZPmeaSTOMrIT4",
+authDomain:"jcb-app-885f8.firebaseapp.com",
+databaseURL:"https://jcb-app-885f8-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId:"jcb-app-885f8"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ADD */
+function add(){
+
+let n = document.getElementById("name").value.trim();
+let a = document.getElementById("amount").value.trim();
+let t = document.getElementById("type").value;
+
+if(!n || a===""){
+alert("Fill all fields ❌");
+return;
+}
+
+let now = new Date();
+
+db.ref("jcb").push({
+name:n,
+amount:Number(a),
+type:t,
+date:now.toLocaleDateString('en-GB'),
+time:now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+});
+
+document.getElementById("name").value="";
+document.getElementById("amount").value="";
+}
+
+/* FORMAT */
+function formatDT(x){
+if(x.date && x.time){
+return x.date+" | "+x.time;
+}
+let d=new Date();
+return d.toLocaleDateString('en-GB')+" | "+d.toLocaleTimeString('en-GB');
+}
+
+/* SHOW */
+db.ref("jcb").on("value",snap=>{
+
+let data = snap.val();
+let html = "";
+
+let cash=0, udhar=0;
+let cashRun=0, udharRun=0;
+
+if(data){
+Object.keys(data).forEach(id=>{
+
+let x = data[id];
+
+let n = x.name || "No Name";
+let a = Number(x.amount || 0);
+let t = x.type || "cash";
+
+if(t==="cash"){
+cash += a;
+cashRun += a;
+}else{
+udhar += a;
+udharRun += a;
+}
+
+html += `
+<div class="record">
+<div><b>${n}</b> (${t})</div>
+<div>₹ ${a}</div>
+
+<div class="dt">📅 ${formatDT(x)}</div>
+
+<div class="run ${t==="udhar"?"udharRun":""}">
+${t==="cash"
+? "💵 Cash Total: ₹"+cashRun
+: "💳 Udhari Running: ₹"+udharRun}
+</div>
+
+<button class="del" onclick="del('${id}')">🗑 Delete</button>
+</div>
+`;
+});
+}else{
+html = "<p style='text-align:center;'>No Data</p>";
+}
+
+document.getElementById("list").innerHTML = html;
+document.getElementById("cashTotal").innerText = cash;
+document.getElementById("udharTotal").innerText = udhar;
+
+});
+
+/* 🔒 DELETE */
+function del(id){
+
+let pass = prompt("Enter delete password 🔒");
+
+if(pass !== deletePassword){
+alert("Wrong password ❌");
+return;
+}
+
+if(confirm("Delete entry?")){
+db.ref("jcb/"+id).remove();
+}
+
+}
+
+/* 🔑 CHANGE PASSWORD */
+function changePassword(){
+
+let oldPass = prompt("Enter old password 🔒");
+
+if(oldPass !== deletePassword){
+alert("Wrong old password ❌");
+return;
+}
+
+let newPass = prompt("Enter new password 🔑");
+
+if(!newPass || newPass.length < 3){
+alert("Password too short ❌");
+return;
+}
+
+localStorage.setItem("delPass", newPass);
+deletePassword = newPass;
+
+alert("Password changed successfully ✅");
+
+}
+
+</script>
+
+</body>
+</html>
